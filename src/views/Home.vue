@@ -1,6 +1,6 @@
 <template>
     <div class="main">
-        <header-bar :total-eos="totalEos" :total-coin="totalCoin" :login-name="loginName" :times="times"></header-bar>
+        <header-bar :total-eos="formatEth" :total-coin="totalCoin" :login-name="loginName" :times="times"></header-bar>
         <div class="content content-width clearfix">
             <div class="coin-top-tip text-center">
                 <h3>
@@ -11,7 +11,7 @@
             </div>
             <div class="total-eos-wrap text-center">
                 <!--{{totalEos | formatPrice}}eos-->
-                {{totalEos}}
+                {{formatEth}} DACC
             </div>
             <div class="countdown-wrap text-center">
                 <div class="countdown-box">{{times.hour}}</div>:
@@ -27,7 +27,7 @@
                 <div class="input-icon-box float-l text-center">
                     <i class="eos-icon"></i>
                 </div>
-                <div class="input-eos-box float-r text-center">@ {{countEos}}eos</div>
+                <div class="input-eos-box float-r text-center">@ {{countDacc}} DACC</div>
                 <div class="input-coin-box text-center">{{coin}} coin</div>
             </div>
             <div class="coin-buttons-wrap">
@@ -41,7 +41,7 @@
             </div>
             <div class="operate-buttons-wrap">
                 <button class="reset-button" @click="resetCoin">Reset coin</button>
-                <button class="send-button" style="margin-left: 12px;" @click="doContract">Send Eos</button>
+                <button class="send-button" style="margin-left: 12px;" @click="toTransfer">Send Eos</button>
             </div>
             <div class="recording-wrap clearfix">
                 <div class="box-area">
@@ -51,14 +51,14 @@
                         </ul>
                     </div>
                     <div class="area-body">
-                        <div v-if="accountName">
+                        <div v-if="loginName">
                             <ul class="area-content">
-                                <li v-if="accountName">
+                                <li v-if="loginName">
                                     <span class="left">
                                         Your Earnings
                                     </span>
                                         <span class="right">
-                                        {{yourEos}}
+                                        {{yourEos | formatPrice}} DACC
                                     </span>
                                 </li>
                             </ul>
@@ -92,7 +92,7 @@
                                     Active Pot
                                 </span>
                                 <span class="right">
-                                    {{totalEos}}
+                                    {{formatEth}} DACC
                                 </span>
                             </li>
                             <li>
@@ -114,7 +114,7 @@
             <a href="https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=zh-CN">Install the MetaMask</a>
         </div>
         <div class="layer" v-if="showChrome">
-            <p>Please use chrome</p>
+            <p>Please use chrome browser</p>
         </div>
         <div class="layer" v-show="showLoading">
             <p>Please wait...</p>
@@ -128,16 +128,17 @@
 <script type="text/ecmascript-6" scoped>
     import HeaderBar from '../components/HeaderBar'
     import FooterBar from '../components/FooterBar'
-    import Config from '../config'
+    import Config from '../config/config'
     import Web3 from 'web3'
 
     const checkBrowser = function() {
         let agent = window.navigator.userAgent
         return /chrome/i.test(agent)
     }
-
+    // init web3js
     const initWeb3 = function () {
         return new Promise(function (resolve, reject) {
+
             // Check for injected web3 (mist/metamask)
             let web3js = window.web3
             let web3
@@ -150,15 +151,15 @@
                     }
                 })
             } else {
-                web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545')) //GANACHE FALLBACK
-                resolve({
-                    // injectedWeb3: web3.isConnected(),
-                    web3 () {
-                        return web3
-                    }
-                })
+                // web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545')) //GANACHE FALLBACK
+                // resolve({
+                //     // injectedWeb3: web3.isConnected(),
+                //     web3 () {
+                //         return web3
+                //     }
+                // })
                 // console.log(web3);
-                // reject(new Error('Unable to connect to Metamask'))
+                reject(new Error('Unable to connect to Metamask'))
             }
         })
     }
@@ -174,13 +175,13 @@
                 showDown: false,
                 showChrome: false,
                 showLoading: false,
-                pageLoading: true,
+                pageLoading: false,
                 roundNum: '',
                 totalEos: '',
                 totalCoin: '',
                 yourCoin: 0,
                 yourEos: 0,
-                currentPrice: 0,
+                currentPrice: 1,
                 coin: 1,
                 remainTime: '',
                 currentTime: '',
@@ -194,7 +195,7 @@
                 publicKey: '',
                 loginName: '',
                 accountName:'',
-                transferTo: Config.accountToName,
+                transferTo: Config.transferTo,
                 identity: null,
                 tableName: Config.userTable,
                 gamesName: Config.gamesTable,
@@ -219,181 +220,87 @@
                 web3: null,
                 contract: null,
                 abi: Config.abi,
-                address: Config.address
+                address: Config.address,
+                transferAbi: Config.transferAbi,
+                transferAddress: Config.transferAddress,
+                gameAbi: Config.gameAbi,
+                gameAddress: Config.gameAddress,
+                contractActions: null,
+                transferHash: '',
+                gameContract: null,
+                gameActions: null,
+                gamesData: [],
+                infoData: []
+
+        }
+        },
+        filters: {
+            formatPrice (val) {
+                return val / Math.pow(10, 6)
             }
         },
         methods: {
             init: async function() {
-                    if (!checkBrowser()) {
-                        this.pageLoading = false
-                        this.showChrome = true
-                        return
-                    }
-                    await this.getScatter() // get scatter
-
-                    // check scatter
-                    if (!this.scatter){
-                        this.pageLoading = false
-                        this.showDown = true
-                        return false
-                    }
-
-                    // if (this.scatter && this.scatter.identity) {
-                    //     await this.destroyIdentity()
-                    //     await this.getEos()
-                    // }
-                    await this.getEos()
-                    this.findTable()
-                    this.getIdentity(this.requiredFields)
-            },
-            // destroy identity
-            destroyIdentity () {
-                this.loginName = ''
-                this.accountName = ''
-                return this.scatter.forgetIdentity()
-            },
-            // get scatter
-            getScatter () {
-                let p = new Promise((resolve, reject) => {
-                    document.addEventListener('scatterLoaded', scatterExtension => {
-                        this.scatter = window.scatter;
-                        resolve(this.scatter)
-                        window.scatter = null;
-                        // scatter.requireVersion(8.0);
-                    })
-                })
-                return p
-            },
-            // get identity
-            getIdentity (fields) {
-                let deferred
-                if (!this.scatter) {
-                    let getScatter = async () => {
-                        await this.getScatter()
-                        deferred = await getIdentity.call(this)
-                    }
-                    getScatter()
-                } else {
-                    deferred = getIdentity.call(this)
-                    deferred.then(res => {
-                        find.call(this)
-                    }).catch(err => {
-                        console.log(err)
-                    })
+                if (!checkBrowser()) {
+                    this.showChrome = true
+                    return
+                }
+                await this.initWeb3()
+                if (!this.checkWeb3()) {
+                    this.showDown = true
+                    return
                 }
 
-                function getIdentity () {
-                    let requiredFields = this.requiredFields
-                    let p = new Promise((resolve, reject) => {
-                        this.scatter.getIdentity(requiredFields).then(identity => {
-                            this.identity = identity
-                            this.loginName = identity.name
-                            resolve(identity)
-                        }).catch(err => {
-                            reject(err)
-                        });
-                    })
-                    return p
+                const account = await this.getAccount()
+                if (account) {
+                    this.web3.eth.defaultAccount = account
+                    this.loginName = `${this.web3.eth.defaultAccount.substr(0, 20)}`
                 }
-                function find () {
-                    this.accountName = this.getAccount().name
-                }
-                return deferred
+                // connect contract
+                const transferContract = await this.createContract(this.transferAbi)
+                this.contractActions = await this.connectContract(transferContract, this.transferAddress)
+                this.gameContract = await this.createContract(this.gameAbi)
+                this.gameActions = await this.connectContract(this.gameContract, this.gameAddress)
 
+                // watch update time listener
+                await this.watchEvent()
+                /*find games data*/
+                await this.loopFind()
+
+            },
+            initWeb3: async function() {
+                let web3Promise = null
+                try {
+                    web3Promise = await initWeb3()
+                }catch (err){
+                    console.log(err)
+                }
+
+                if (web3Promise) {
+                    this.web3 = web3Promise.web3()
+                }
+                return web3Promise
             },
             getAccount () {
-                return this.scatter.identity.accounts.find(account => account.blockchain === 'eos');
-            },
-            // check identity sign
-            getAuthenticate () {
-                this.scatter.authenticate()
-                    .then(sign => {
-                        this.sign = sign
+                let prom = new Promise((resolve, reject) => {
+                    this.web3.eth.getAccounts((err, result) => {
+                        resolve(result[0])
                     })
-                    .catch(err => {
-
-                    })
+                })
+                return prom
             },
-            // get eos instance
-            getEos () {
-                const eosOptions = {};
-                this.eos = this.scatter.eos( this.network, Eos, eosOptions, 'https' );
+            checkAccount () {
+                return this.web3.eth.defaultAccount
             },
-            checkScatter () {
-                return this.scatter
-            },
-            checkIdentity () {
-                return this.loginName
-            },
-            // transfer
-            doContract () {
-                if (this.coin === 0) {
-                    return false
-                }
-                if (!this.checkScatter()) {
-                    this.showDown = true
-                    return false
-                }
-                if(!this.checkIdentity()) {
-                    this.getIdentity(this.requiredFields)
-                    return false
-                }
-
-                /*if (this.countTime <= 0) {
-                    this.$swal({
-                        type: 'warning',
-                        text: 'Game over',
-                        confirmButtonText: 'sure',
-                        showCancelButton: false
-                    })
-                    return false
-                }*/
-
-                const accountFrom = this.scatter.identity.accounts.find(account => account.blockchain === 'eos');
-
-                if (accountFrom) {
-
-                    this.accountName = accountFrom.name
-                    const accountTo = this.transferTo;
-                    const eosOptions = {
-                        // keyProvider: this.privateKey,
-                        authorization: `${this.accountName}@active`
-                    };
-
-                    this.showLoading = true
-
-                    this.eos.contract(this.eosio)
-                        .then(contract => {
-                            contract.transfer({from: accountFrom.name, to: accountTo, quantity: this.countEos + ' EOS', memo: this.coin}, eosOptions).then(res => {
-                                this.showLoading = false
-                                this.$swal({
-                                    type: 'success',
-                                    text: 'Successful transaction',
-                                    confirmButtonText: 'sure',
-                                    showCancelButton: false
-                                })
-
-                            }).catch(e => {
-                                this.showLoading = false
-                                if(e.toString().includes("overdrawn balance") || e.toString().includes("no balance object found")){
-                                    alert("No money, go back to Getting Started and refill")
-                                }
-                            })
-
-                        })
-                        .catch(e => {
-                            console.log(e)
-                        })
-                }
-
+            checkWeb3 () {
+                return this.web3
             },
             withdraw () {
-                if (!this.checkScatter()) {
+                if (!this.checkWeb3()) {
                     this.showDown = true
                     return false
                 }
-                if(!this.checkIdentity()) {
-                    this.getIdentity(this.requiredFields)
+                if(!this.checkAccount()) {
                     return false
                 }
 
@@ -403,63 +310,31 @@
                         text: 'Your balance is insufficient',
                         confirmButtonText: 'sure',
                         showCancelButton: false
-                    }).then((res) => {})
+                    })
                     return false
                 }
 
-                const accountFrom = this.scatter.identity.accounts.find(account => account.blockchain === 'eos');
+                this.showLoading = true
 
-                if (accountFrom) {
-                    this.accountName = accountFrom.name
-                    const eosOptions = {
-                        keyProvider: this.privateKey,
-                        authorization: `${this.accountName}@active`
-                    };
-                    this.showLoading = true
+                this.gameActions.withdraw((err, result) => {
 
-                    this.eos.contract(this.tokenName)
-                        .then(contract => {
-                            contract.withdraw({account: accountFrom.name, quantity: this.yourEos}, eosOptions).then(res => {
-                                this.showLoading = false
-                                this.$swal({
-                                    type: 'success',
-                                    text: 'Successful transaction',
-                                    confirmButtonText: 'sure',
-                                    showCancelButton: false
-                                })
-
-                            }).catch(e => {
-                                this.showLoading = false
-                                if (e) {
-                                    let msg = e.error.details[0].message
-                                    this.$swal({
-                                        type: 'warning',
-                                        text: msg,
-                                        confirmButtonText: 'sure',
-                                        showCancelButton: false
-                                    })
-                                }
-                                if(e.toString().includes("overdrawn balance") || e.toString().includes("no balance object found")){
-                                    this.$swal({
-                                        type: 'warning',
-                                        text: 'No money, go back to Getting Started and refill',
-                                        confirmButtonText: 'sure',
-                                        showCancelButton: false
-                                    })
-                                }
-                            })
+                    this.showLoading = false
+                    if (!err) {
+                        this.$swal({
+                            type: 'success',
+                            text: 'success',
+                            confirmButtonText: 'sure',
+                            showCancelButton: false
                         })
-                        .catch(e => {
-                            if (e) {
-                                this.$swal({
-                                    type: 'warning',
-                                    text: e.toString(),
-                                    confirmButtonText: 'sure',
-                                    showCancelButton: false
-                                })
-                            }
+                    } else {
+                        this.$swal({
+                            type: 'warning',
+                            text: err,
+                            confirmButtonText: 'sure',
+                            showCancelButton: false
                         })
-                }
+                    }
+                })
             },
             countDown (times) {
                 if (this.timer) {
@@ -496,80 +371,41 @@
                     times--;
                 }, 1000);
             },
-            // find table rows
-            findTable () {
-                // find tables
-                async function initFind ()  {
-                    // find user table
-                    await findTables.call(this, {tableName: this.tableName}, function(res) {
-                        if(this.accountName){
-                            this.myPlayer = res.rows.find(x => x.player === this.accountName)
-                            if (this.myPlayer) {
-                                this.yourCoin = this.myPlayer.coins
-                                this.yourEos = this.myPlayer.eos_balance
-                            }
-                        }
-                    })
-
-                    //find info for system time
-                    // await getInfo.call(this)
-
-                    // find games table
-                    await findTables.call(this, {tableName: this.gamesName}, function(res) {
-                            this.pageLoading = false
-
-                            let data = res.rows[0]
-                            if (data && this.endTime != data.end_time && data.end_time !== 0) {
-                                this.totalCoin = data.nr_of_coins
-                                this.totalEos = data.bonus
-                                this.endTime = data.end_time
-                                this.currentPrice = data.next_token_rate
-                                this.roundNum = data.round
-                                this.countTime = this.endTime - (new Date().getTime() / 1000)
-                                this.countDown(this.countTime - 1)
-
-                                // let myDate = new Date(this.endTime * 1000).format('yyyy/MM/dd hh:mm:ss')
-                                // $(".hours, .minutes, .seconds").empty()
-
-                                // let flip = $(".timer").flipTimer({
-                                //     direction: 'down',
-                                //     date: myDate,
-                                //     template: ''
-                                // })
-                            }
-                        })
-
-                    setTimeout(() => {
-                        initFind.call(this)
-                    }, 1000)
-                }
-                function findTables(option,cb) {
-                    return this.eos.getTableRows({
-                        code: this.tokenName,
-                        scope: this.tokenName,
-                        limit: 100000,
-                        table: option.tableName,
-                        json: true,
-                    }).then(res => {
-                        cb && cb.call(this,res)
-                    });
-                }
-
-                initFind.call(this)
-                    .then(res => {
-                        if (!this.isAnimate) {
-                            this.isAnimate = true
-                        }
-                    })
+            sendResult () {
+                console.table({
+                    round: parseInt(this.roundNum),
+                    account: this.web3.eth.defaultAccount,
+                    dacc: this.costDacc,
+                    coin: this.coin
+                })
+                this.gameActions.handleBuy(parseInt(this.roundNum), this.web3.eth.accounts[0], this.costDacc, this.coin, {from: this.web3.eth.defaultAccount}, (err, res) =>{
+                    if (!err) {
+                        console.log(res)
+                    } else {
+                        console.log(err)
+                    }
+                })
             },
-            getBalance () {
-                this.eos.getCurrencyBalance({
-                    code: this.eosio,
-                    account: this.accountName,
-                    symbol: 'EOS'
-                }).then(function(res) {
-                    console.log(res);
-                });
+            toTransfer () {
+                if (this.coin === 0) {
+                    return false
+                }
+                if (!this.checkWeb3()) {
+                    this.showDown = true
+                    return false
+                }
+                if(!this.checkAccount()) {
+                    return false
+                }
+                this.showLoading = true
+                this.contractActions.transfer(this.transferTo, this.costDacc, {from: this.web3.eth.accounts[0]}, (err, res) =>{
+                    if (!err) {
+                        this.sendResult()
+                        this.transferHash = res
+                    } else {
+                        this.showLoading = false
+                    }
+                })
             },
             addCoin (num) {
                 this.coin += num
@@ -577,53 +413,110 @@
             resetCoin () {
                 this.coin = 0
             },
-            initWeb: async function() {
-                let web3Promise
-                try {
-                    web3Promise = await initWeb3()
-                }catch (err){
-                    console.log(err)
-                }
-
-                if (web3Promise) {
-                    this.web3 = web3Promise.web3()
-                }
-
-            },
             checkWeb3 () {
                 if (this.web3) {
                     return true
                 }
                 return false
             },
-            createContract () {
-                return this.web3.eth.contract(this.abi)
+            watchEvent () {
+                let handle = this.gameActions.onUpdateTimer()
+                handle.watch((err, result) => {
+                    this.showLoading = false
+                    if(!err) {
+                        this.loopFind()
+                    } else {
+                        this.$swal({
+                            type: 'warning',
+                            text: err,
+                            confirmButtonText: 'sure',
+                            showCancelButton: false
+                        })
+                    }
+                })
+
+                this.gameActions.onWithdraw()
+                    .watch((err, result) => {
+                        if (!err) {
+                            this.loopFind()
+                        } else {
+                            this.$swal({
+                                type: 'warning',
+                                text: err,
+                                confirmButtonText: 'sure',
+                                showCancelButton: false
+                            })
+                        }
+                    })
             },
-            connectContract () {
-                if (!this.contract) {
+            createContract (abi) {
+                return this.web3.eth.contract(abi)
+            },
+            connectContract (contract, address) {
+                if (!contract) {
                     return
                 }
-                this.contract.at(this.address)
+                return contract.at(address)
+            },
+            loopGetblock () {
+                this.web3.eth.getBlock('latest', true, (err, result) => {
+                    if (!err) {
+                        console.log(result)
+                    } else {
+                        console.log(err)
+                    }
+                })
+            },
+            loopFind () {
+                // games info
+                this.gameActions.getCurrentRoundInfo.call((err, result) => {
+                    if (!err) {
+                        console.log(result)
+                    this.gamesData = result.map(res => {
+                            return res.toString()
+                        })
+                        this.roundNum = this.gamesData[0]
+                        this.totalCoin = this.gamesData[1]
+                        this.totalEos = this.gamesData[2]
+                        this.endTime = this.gamesData[4]
+                        this.currentPrice = this.gamesData[6]
+                        let times = this.endTime - (new Date().getTime() / 1000)
+                        this.countDown(times)
+
+                        console.log(this.gamesData)
+                    } else {
+                        console.log(err)
+                    }
+                })
+                // owner info
+                this.gameActions.getPlayerInfo.call(this.web3.eth.defaultAccount, (err, result) => {
+                    if (!err) {
+                        this.infoData = result.map(res => {
+                            return res.toString()
+                        })
+                        this.yourCoin = this.infoData[3]
+                        this.yourEos = this.infoData[2]
+                    } else {
+                        console.log(err)
+                    }
+                })
             }
         },
         computed: {
-            countEos () {
-                let num = this.coin * (this.currentPrice / 10000)
-                return num.toFixed(4)
+            countDacc () {
+                let num = this.coin * (this.currentPrice) / Math.pow(10, 6)
+                return num
+            },
+            costDacc () {
+                let num = this.coin * (this.currentPrice)
+                return num
+            },
+            formatEth (val) {
+                return this.totalEos / Math.pow(10, 6)
             }
         },
         created () {
-            this.initWeb()
-                .then(res => {
-                    if (this.checkWeb3()) {
-                        this.createContract()
-                        this.contractMethods = this.connectContract()
-                        console.log(this.contractMethods)
-                    }
-                })
-                .catch(err => {
-                    console.log(err)
-                })
+            this.init()
         },
         mounted () {
             this.$nextTick(() => {

@@ -1,3 +1,5 @@
+import ContractConfig, {gameAddress, transferAddress} from './abi'
+
 const dev = {
     network: {
         protocol:'http',
@@ -11,8 +13,12 @@ const dev = {
     accountToName: 'dacccoin',
     userTable: 'accounts',
     gamesTable: 'games',
-    abi: [{"constant":false,"inputs":[{"name":"a","type":"uint256"},{"name":"b","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"}],
-    address: '0x4a706efd42c254f8407712dbbfea668758fe652f'
+    transferTo: '0x4710827d464e2f815d47198be4f491ad6c214e8d',
+    gameAbi: ContractConfig.gameAbi,
+    transferAbi: ContractConfig.transferAbi,
+    gameAddress: ContractConfig.gameAddress,
+    transferAddress: ContractConfig.transferAddress,
+    address: '0xa7de0e90c6f69769aa8e94a1f075b842a7642725'
 }
 
 const product = {

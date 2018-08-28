@@ -4,10 +4,10 @@
             <div class="float-l logo-box">
                 <img class="coin-logo" src="../assets/images/logo-1.png" alt="logo">
             </div>
-            <div class="float-r login-box">
-                <button class="coin-button" @click="forgetIdentity" v-if="loginName">Forget Identity</button>
-                <button class="coin-button margin-l-r-20" @click="requestIdentity" v-if="!loginName">Login with Scatter</button>
-            </div>
+            <!--<div class="float-r login-box">-->
+                <!--<button class="coin-button" @click="forgetIdentity" v-if="loginName">Forget Identity</button>-->
+                <!--<button class="coin-button margin-l-r-20" @click="requestIdentity" v-if="!loginName">Login with Scatter</button>-->
+            <!--</div>-->
             <div class="float-r login-box" v-if="loginName">
                 {{loginName}}
             </div>
@@ -15,7 +15,7 @@
                 <ul>
                     <li>
                         <i class="coin-icon icon-all"></i>
-                        <span>{{totalEos}}</span>
+                        <span>{{totalEos}} DACC</span>
                     </li>
                     <li style="width: 150px;">
                         <i class="coin-icon icon-time"></i>
